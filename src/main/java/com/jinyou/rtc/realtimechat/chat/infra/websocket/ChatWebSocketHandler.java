@@ -1,6 +1,8 @@
 package com.jinyou.rtc.realtimechat.chat.infra.websocket;
 
+import com.jinyou.rtc.realtimechat.chat.application.ChatCommandService;
 import com.jinyou.rtc.realtimechat.chat.infra.support.protocol.IncomingFrame;
+import com.jinyou.rtc.realtimechat.chat.infra.support.protocol.OutgoingFrame;
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -10,16 +12,26 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class ChatWebSocketHandler extends TextWebSocketHandler {
 
-    // socket 에서 넘어온 데이터를 자바 객체로 변환하기 위해 사용
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    // 연결된 세션 목록
-    private final ConcurrentHashMap<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
+    private final ObjectMapper objectMapper;
+    private final SessionRegistry sessionRegistry;
+    private final MessageSender messageSender;
+    private final ChatCommandService chatCommandService;
 
+    public ChatWebSocketHandler(
+            ObjectMapper objectMapper,
+            SessionRegistry sessionRegistry,
+            MessageSender messageSender,
+            ChatCommandService chatCommandService
+    ) {
+        this.objectMapper = objectMapper;
+        this.sessionRegistry = sessionRegistry;
+        this.messageSender = messageSender;
+        this.chatCommandService = chatCommandService;
+    }
 
     // WebSocket이 연결이 되어 사용할 준비가 됨
     @Override
@@ -29,7 +41,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             closeQuietly(session);
             return;
         }
-        sessions.put(userId, session);
+        sessionRegistry.register(userId, session);
     }
 
     // 새로운 WebSocket 메세지가 도착했을 때 호출
@@ -37,23 +49,19 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     protected void handleTextMessage(
             @NonNull WebSocketSession session,
             @NonNull TextMessage message
-    ) throws Exception {
-        // 전달된 메세지를 IncomingFrame 객체에 맞게 변환
-        IncomingFrame frame = objectMapper.readValue(message.getPayload(), IncomingFrame.class);
-
-        // type이 채팅인 아닌 경우 처리하지 않음
-        if (!"CHAT".equals(frame.type())) return;
-
-        // 상대의 id를 통해 세션을 가져온다
-        // 상대의 세션을 찾았고 열려있는 경우만 메세지를 전달한다
-        WebSocketSession target = sessions.get(frame.toUserId());
-        if (target != null && target.isOpen()) {
-            // 상대에게
-            target.sendMessage(new TextMessage(objectMapper.writeValueAsString(frame)));
-
-            // 나에게
-            session.sendMessage(new TextMessage("{\"type\":\"ACK\",\"clientMessageId\":\"" + frame.clientMessageId() + "\"}"));
+    ) {
+        String fromUserId = (String) session.getAttributes().get("userId");
+        if (fromUserId == null) {
+            closeQuietly(session);
+            return;
         }
+
+        // 전달된 메세지를 IncomingFrame 객체에 맞게 변환
+        IncomingFrame incomingFrame = objectMapper.readValue(message.getPayload(), IncomingFrame.class);
+        OutgoingFrame response = chatCommandService.handle(fromUserId, incomingFrame);
+
+        // 메세지 전달 결과를 발신자에게 응답
+        messageSender.send(session, response);
     }
 
     // WebSocket 연결이 닫혔을 때
@@ -64,7 +72,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     ) {
         // 끊긴 유저의 id를 세션에서 가져와서 접속된 세션 목록에서 지워준다
         String userId = (String) session.getAttributes().get("userId");
-        if (userId != null) sessions.remove(userId, session);
+        if (userId != null) {
+            sessionRegistry.unregister(userId, session);
+        }
     }
 
     private void closeQuietly(WebSocketSession session) {
