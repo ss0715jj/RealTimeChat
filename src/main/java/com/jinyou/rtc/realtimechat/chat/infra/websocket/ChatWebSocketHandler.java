@@ -1,5 +1,6 @@
-package com.jinyou.rtc.realtimechat;
+package com.jinyou.rtc.realtimechat.chat.infra.websocket;
 
+import com.jinyou.rtc.realtimechat.chat.infra.support.protocol.IncomingFrame;
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -41,11 +42,11 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         IncomingFrame frame = objectMapper.readValue(message.getPayload(), IncomingFrame.class);
 
         // type이 채팅인 아닌 경우 처리하지 않음
-        if (!"CHAT".equals(frame.type)) return;
+        if (!"CHAT".equals(frame.type())) return;
 
         // 상대의 id를 통해 세션을 가져온다
         // 상대의 세션을 찾았고 열려있는 경우만 메세지를 전달한다
-        WebSocketSession target = sessions.get(frame.toUserId);
+        WebSocketSession target = sessions.get(frame.toUserId());
         if (target != null && target.isOpen()) {
             // 상대에게
             target.sendMessage(new TextMessage(objectMapper.writeValueAsString(frame)));
@@ -72,11 +73,4 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             session.close();
         } catch (IOException ignored) {}
     }
-
-    private record IncomingFrame(
-            String type,
-            String toUserId,
-            String clientMessageId,
-            String content
-    ) {  }
 }
