@@ -13,7 +13,8 @@ public record OutgoingFrame(
         String clientMessageId,
         String toUserId,
         String fromUserId,
-        String content
+        String content,
+        ErrorPayload errorPayload
 ) {
 
     /**
@@ -22,7 +23,7 @@ public record OutgoingFrame(
      * @return 응답 메세지 포멧
      */
     public static OutgoingFrame ack(String clientMessageId) {
-        return new OutgoingFrame("ACK", clientMessageId, null, null, null);
+        return new OutgoingFrame("ACK", clientMessageId, null, null, null, null);
     }
 
     /**
@@ -31,7 +32,7 @@ public record OutgoingFrame(
      * @return 응답 메세지 포멧
      */
     public static OutgoingFrame offline(String toUserId) {
-        return new OutgoingFrame("OFFLINE", null, toUserId, null, null);
+        return new OutgoingFrame("OFFLINE", null, toUserId, null, null, null);
     }
 
     /**
@@ -43,6 +44,17 @@ public record OutgoingFrame(
      * @return 응답 메세지 포멧
      */
     public static OutgoingFrame chat(String fromUserId, String toUserId, String content, String clientMessageId) {
-        return new OutgoingFrame("CHAT", clientMessageId, toUserId, fromUserId, content);
+        return new OutgoingFrame("CHAT", clientMessageId, toUserId, fromUserId, content, null);
+    }
+
+    /**
+     * 메세지 처리 중 애러발생
+     * @param clientMessageId 메세지 Id
+     * @param code 애러 코드
+     * @param message 애러 메세지
+     * @return 응답 메세지 포멧
+     */
+    public static OutgoingFrame error(String clientMessageId, String code, String message) {
+        return new OutgoingFrame("ERROR", clientMessageId, null, null, null, new ErrorPayload(code, message));
     }
 }

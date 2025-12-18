@@ -3,16 +3,19 @@ package com.jinyou.rtc.realtimechat.chat.infra.websocket;
 import com.jinyou.rtc.realtimechat.chat.application.ChatCommandService;
 import com.jinyou.rtc.realtimechat.chat.infra.support.protocol.IncomingFrame;
 import com.jinyou.rtc.realtimechat.chat.infra.support.protocol.OutgoingFrame;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 
+@Slf4j
 @Component
 public class ChatWebSocketHandler extends TextWebSocketHandler {
 
@@ -56,12 +59,19 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        // 전달된 메세지를 IncomingFrame 객체에 맞게 변환
-        IncomingFrame incomingFrame = objectMapper.readValue(message.getPayload(), IncomingFrame.class);
-        OutgoingFrame response = chatCommandService.handle(fromUserId, incomingFrame);
-
-        // 메세지 전달 결과를 발신자에게 응답
-        messageSender.send(session, response);
+        try {
+            // 전달된 메세지를 IncomingFrame 객체에 맞게 변환
+            IncomingFrame incomingFrame = objectMapper.readValue(message.getPayload(), IncomingFrame.class);
+            OutgoingFrame response = chatCommandService.handle(fromUserId, incomingFrame);
+            // 메세지 전달 결과를 발신자에게 응답
+            messageSender.send(session, response);
+        } catch (JacksonException e) {
+            log.error("[ChatWebSocketHandler] Json parser error", e);
+            messageSender.send(session, OutgoingFrame.error("INVALID_PAYLOAD", "Invalid JSON payload", null));
+        } catch (Exception e) {
+            log.error("[ChatWebSocketHandler] Json parser error", e);
+            messageSender.send(session, OutgoingFrame.error("INTERNAL_ERROR", "Unexpected server error", null));
+        }
     }
 
     // WebSocket 연결이 닫혔을 때
@@ -81,6 +91,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         // 세션을 끊어준다
         try {
             session.close();
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
     }
 }

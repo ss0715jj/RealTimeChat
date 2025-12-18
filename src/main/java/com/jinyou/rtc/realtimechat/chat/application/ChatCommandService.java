@@ -27,24 +27,24 @@ public class ChatCommandService {
     public OutgoingFrame handle(String fromUserId, IncomingFrame frame) {
         log.info("[ChatCommandService] handle ------ \nfromUserId : {}\nframe : {}", fromUserId, frame);
 
-        // 보내는 메세지가 없거나 타입이 없을 경우 offline 응답
+        // 보내는 메세지가 없거나 타입이 없을 경우 INVALID_FRAME error 응답
         if (frame == null || frame.type() == null) {
-            return OutgoingFrame.offline(null);
+            return OutgoingFrame.error(null, "INVALID_FRAME", "type is required");
         }
 
-        // 보내는 메세지가 있지만 타입이 chat이 아닐경우 ack 응답
+        // 보내는 메세지가 있지만 타입이 chat이 아닐경우 UNSUPPORTED_TYPE error 응답
         if (!"CHAT".equals(frame.type())) {
-            return OutgoingFrame.ack(frame.clientMessageId());
+            return OutgoingFrame.error(frame.clientMessageId(), "UNSUPPORTED_TYPE", "unsupported type: " + frame.type());
         }
 
-        // 보내는 메세지에 받는 유저 id가 없거나 공백일 경우 offline 응답
+        // 보내는 메세지에 받는 유저 id가 없거나 공백일 경우 INVALID_TO_USER error 응답
         if (frame.toUserId() == null || frame.toUserId().isBlank()) {
-            return OutgoingFrame.offline(null);
+            return OutgoingFrame.error(frame.clientMessageId(), "INVALID_TO_USER", "toUserId is required");
         }
 
-        // 보내는 메세지에 실제 내용이 없거나 공백일 경우 ack 응답
+        // 보내는 메세지에 실제 내용이 없거나 공백일 경우 INVALID_CONTENT error 응답
         if (frame.content() == null || frame.content().isBlank()) {
-            return OutgoingFrame.ack(frame.clientMessageId());
+            return OutgoingFrame.error(frame.clientMessageId(), "INVALID_CONTENT", "content is required");
         }
 
         /*
