@@ -1,6 +1,6 @@
 package com.jinyou.rtc.realtimechat.global.config;
 
-import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,15 +19,20 @@ public class JwtConfig {
     @Value("${app.jwt.secret}")
     private String secret;
 
+    private SecretKey secretKey;
+
+    @PostConstruct
+    public void init() {
+        secretKey = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+    }
+
     @Bean
     JwtEncoder jwtEncoder() {
-        SecretKey key = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-        return new NimbusJwtEncoder(new ImmutableSecret<>(key));
+        return NimbusJwtEncoder.withSecretKey(secretKey).build();
     }
 
     @Bean
     JwtDecoder jwtDecoder() {
-        SecretKey key = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-        return NimbusJwtDecoder.withSecretKey(key).build();
+        return NimbusJwtDecoder.withSecretKey(secretKey).build();
     }
 }

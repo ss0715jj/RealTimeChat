@@ -1,4 +1,4 @@
-package com.jinyou.rtc.realtimechat.chat.application;
+package com.jinyou.rtc.realtimechat.chat.service;
 
 import com.jinyou.rtc.realtimechat.chat.infra.support.protocol.IncomingFrame;
 import com.jinyou.rtc.realtimechat.chat.infra.support.protocol.OutgoingFrame;

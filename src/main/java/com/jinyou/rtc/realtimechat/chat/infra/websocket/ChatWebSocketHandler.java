@@ -1,6 +1,6 @@
 package com.jinyou.rtc.realtimechat.chat.infra.websocket;
 
-import com.jinyou.rtc.realtimechat.chat.application.ChatCommandService;
+import com.jinyou.rtc.realtimechat.chat.service.ChatCommandService;
 import com.jinyou.rtc.realtimechat.chat.infra.support.protocol.IncomingFrame;
 import com.jinyou.rtc.realtimechat.chat.infra.support.protocol.OutgoingFrame;
 import lombok.extern.slf4j.Slf4j;
